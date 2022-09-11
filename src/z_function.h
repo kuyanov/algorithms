@@ -3,17 +3,17 @@
 
 using namespace std;
 
-vector<int> z_function(const string &s) {
-    int n = (int)s.size();
-    vector<int> z(n);
+vector<size_t> z_function(const string &s) {
+    size_t n = s.size();
+    vector<size_t> z(n);
     z[0] = n;
-    int l = 0;
-    int r = 0;
-    for (int i = 1; i < n; i++) {
+    size_t l = 0;
+    size_t r = 0;
+    for (size_t i = 1; i < n; i++) {
         if (i + z[i - l] <= r) {
             z[i] = z[i - l];
         } else {
-            z[i] = max(r - i + 1, 0);
+            z[i] = r + 1 >= i ? r - i + 1 : 0;
             while (i + z[i] < n && s[i + z[i]] == s[z[i]]) {
                 z[i]++;
             }

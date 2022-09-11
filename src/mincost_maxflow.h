@@ -1,53 +1,52 @@
 #include <algorithm>
 #include <queue>
 #include <set>
+#include <utility>
 #include <vector>
 
-namespace MinCost {
-    const int INF = 1'000'000'000;
-
+class MinCostMaxFlow {
+public:
     struct edge {
-        int u, v, cap, cost, flow;
-
-        edge() : u(-1), v(-1), cap(0), cost(0), flow(0) {}
-
-        edge(int _u, int _v, int _cap, int _cost, int _flow) : u(_u), v(_v), cap(_cap), cost(_cost), flow(_flow) {}
+        size_t u, v;
+        int cap, cost, flow;
     };
 
+    static constexpr int INF = 1'000'000'000;
+
     vector<edge> e;
-    vector<vector<int>> g;
-    vector<int> p;
+    vector<vector<size_t>> g;
+    vector<size_t> p;
     vector<int> w, d;
 
-    void init(int n) {
+    explicit MinCostMaxFlow(size_t n) {
         g.resize(n);
         w.resize(n);
         d.resize(n);
         p.resize(n);
     }
 
-    void add_edge(int u, int v, int cap, int cost) {
-        g[u].push_back((int) e.size());
-        e.emplace_back(u, v, cap, cost, 0);
-        g[v].push_back((int) e.size());
-        e.emplace_back(v, u, 0, -cost, 0);
+    void add_edge(size_t u, size_t v, int cap, int cost) {
+        g[u].push_back(e.size());
+        e.push_back({u, v, cap, cost, 0});
+        g[v].push_back(e.size());
+        e.push_back({v, u, 0, -cost, 0});
     }
 
-    void ford_bellman(int s) {
-        int n = (int) g.size();
+    void ford_bellman(size_t s) {
+        size_t n = g.size();
         fill(w.begin(), w.end(), INF);
         w[s] = 0;
         vector<bool> used(n);
         used[s] = true;
-        queue<int> q;
+        queue <size_t> q;
         q.push(s);
         while (!q.empty()) {
-            int u = q.front();
+            size_t u = q.front();
             q.pop();
             used[u] = false;
-            for (int ind: g[u]) {
+            for (size_t ind: g[u]) {
                 if (e[ind].flow < e[ind].cap) {
-                    int v = e[ind].v;
+                    size_t v = e[ind].v;
                     if (w[v] > w[u] + e[ind].cost) {
                         w[v] = w[u] + e[ind].cost;
                         if (!used[v]) {
@@ -60,22 +59,22 @@ namespace MinCost {
         }
     }
 
-    void dijkstra(int s) {
-        int n = (int) g.size();
+    void dijkstra(size_t s) {
+        size_t n = g.size();
         fill(d.begin(), d.end(), INF);
         d[s] = 0;
         vector<bool> used(n);
-        set <pair<int, int>> st;
+        set <pair<int, size_t>> st;
         st.emplace(d[s], s);
-        fill(p.begin(), p.end(), -1);
+        fill(p.begin(), p.end(), -1ul);
         while (!st.empty()) {
-            int u = (*st.begin()).second;
+            size_t u = st.begin()->second;
             st.erase(st.begin());
             if (used[u]) continue;
             used[u] = true;
-            for (int ind: g[u]) {
+            for (size_t ind: g[u]) {
                 if (e[ind].flow < e[ind].cap) {
-                    int v = e[ind].v;
+                    size_t v = e[ind].v;
                     int cost = e[ind].cost + w[u] - w[v];
                     if (d[v] > d[u] + cost) {
                         d[v] = d[u] + cost;
@@ -86,31 +85,31 @@ namespace MinCost {
             }
             used[u] = true;
         }
-        for (int i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
             d[i] += w[i];
         }
     }
 
-    pair<int, int> min_cost_max_flow(int s, int t) {
+    pair<int, int> min_cost_max_flow(size_t s, size_t t) {
         ford_bellman(s);
-        vector<int> path;
+        vector<size_t> path;
         int cost = 0, flow = 0;
         while (true) {
             dijkstra(s);
-            if (p[t] == -1) {
+            if (p[t] == -1ul) {
                 break;
             }
             path.clear();
-            int v = t;
+            size_t v = t;
             while (v != s) {
                 path.push_back(p[v]);
                 v = e[p[v]].u;
             }
             int min_flow = INF;
-            for (int ind: path) {
+            for (size_t ind: path) {
                 min_flow = min(min_flow, e[ind].cap - e[ind].flow);
             }
-            for (int ind: path) {
+            for (size_t ind: path) {
                 e[ind].flow += min_flow;
                 e[ind ^ 1].flow -= min_flow;
                 cost += min_flow * e[ind].cost;
@@ -120,4 +119,4 @@ namespace MinCost {
         }
         return {cost, flow};
     }
-}
+};

@@ -1,6 +1,6 @@
 #include <algorithm>
 #include <cmath>
-#include <iosfwd>
+#include <ctime>
 #include <optional>
 #include <random>
 #include <tuple>
@@ -9,7 +9,7 @@
 using namespace std;
 
 namespace Geom2D {
-    const int INF = 1'000'000'000;
+    static constexpr int INF = 1'000'000'000;
 
     template<typename T>
     struct point {
@@ -163,15 +163,15 @@ namespace Geom2D {
 
     template<typename T>
     bool in_convex_polygon(const vector<point<T>> &a, const point<T> &p) {
-        int n = a.size();
+        size_t n = a.size();
         point v = p - a[0];
         if ((v ^ (a[1] - a[0])) > 0 || (v ^ (a[n - 1] - a[0])) < 0) {
             return false;
         }
-        int l = 1;
-        int r = n - 1;
+        size_t l = 1;
+        size_t r = n - 1;
         while (r - l > 1) {
-            int m = (l + r) / 2;
+            size_t m = (l + r) / 2;
             point cur = a[m] - a[0];
             if ((cur ^ v) > 0) l = m;
             else r = m;
@@ -183,9 +183,9 @@ namespace Geom2D {
 
     template<typename T>
     bool in_polygon(const vector<point<T>> &a, const point<T> &p) {
-        int n = a.size();
+        size_t n = a.size();
         double ang = 0;
-        for (int i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
             point v1 = a[i] - p, v2 = a[(i + 1) % n] - p;
             if ((v1 ^ v2) == 0 && (v1 * v2) <= 0) return true;
             ang += angle(v1, v2);
@@ -197,21 +197,19 @@ namespace Geom2D {
     vector<point<T>> convex_hull(vector<point<T>> a) {
         sort(a.begin(), a.end());
         a.resize(unique(a.begin(), a.end()) - a.begin());
-        int n = a.size();
+        size_t n = a.size();
         point p0 = *(min_element(a.begin(), a.end()));
         vector<point<T>> from_p0;
-        for (int i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
             if (a[i] != p0) {
                 from_p0.push_back(a[i] - p0);
             }
         }
         n = from_p0.size();
-        sort(from_p0.begin(), from_p0.end(), [](const point<T> &a, const point<T> &b) {
-            return polar_cmp(a, b);
-        });
+        sort(from_p0.begin(), from_p0.end(), polar_cmp<T>);
         vector<point<T>> st;
         st.emplace_back(T(0), T(0));
-        for (int i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
             point cur = from_p0[i];
             while (st.size() > 1) {
                 point p1 = st[st.size() - 2], p2 = st[st.size() - 1];
@@ -221,7 +219,7 @@ namespace Geom2D {
             st.push_back(cur);
         }
         vector<point<T>> ans(st.size());
-        for (int i = 0; i < (int) st.size(); i++) {
+        for (size_t i = 0; i < st.size(); i++) {
             ans[i] = p0 + st[i];
         }
         return ans;
@@ -229,9 +227,9 @@ namespace Geom2D {
 
     template<typename T>
     double area(const vector<point<T>> &a) {
-        int n = a.size();
+        size_t n = a.size();
         T ans = 0;
-        for (int i = 1; i < n - 1; i++) {
+        for (size_t i = 1; i < n - 1; i++) {
             ans += (a[i + 1] - a[0]) ^ (a[i] - a[0]);
         }
         return abs(ans) / 2.0;
@@ -239,17 +237,18 @@ namespace Geom2D {
 
     template<typename T>
     optional<point<T>> intersect(vector<line<T>> a) {
-        shuffle(a.begin(), a.end(), mt19937());
+        static mt19937 rnd(clock());
+        shuffle(a.begin(), a.end(), rnd);
         a.insert(a.begin(), line<T>(1, 0, INF));
-        int n = a.size();
+        size_t n = a.size();
         point cur = point(T(-INF), T(0));
-        for (int i = 1; i < n; i++) {
+        for (size_t i = 1; i < n; i++) {
             if (a[i].a * cur.x + a[i].b * cur.y + a[i].c >= 0) continue;
             point dir1 = norm(point(-a[i].b, a[i].a));
             point q = get_point(a[i], T(0));
             optional<point<T>> cur1{}, cur2{};
             T val1 = -INF, val2 = INF;
-            for (int j = 0; j < i; j++) {
+            for (size_t j = 0; j < i; j++) {
                 auto p = intersect(a[j], a[i]);
                 if (!p.has_value()) {
                     if (a[j].a * q.x + a[j].b * q.y + a[j].c < 0) return {};
