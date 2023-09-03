@@ -5,96 +5,78 @@
 using namespace std;
 
 namespace FFT {
-    struct base {
+    struct cd {
         double x, y;
 
-        explicit base(double _x = 0, double _y = 0) : x(_x), y(_y) {};
+        explicit cd(double _x = 0, double _y = 0) : x(_x), y(_y) {};
     };
 
-    inline base operator*(const base &p1, const base &p2) {
-        return base(p1.x * p2.x - p1.y * p2.y, p1.x * p2.y + p2.x * p1.y);
+    inline cd operator+(const cd &p1, const cd &p2) {
+        return cd(p1.x + p2.x, p1.y + p2.y);
     }
 
-    inline void operator/=(base &p1, size_t k) {
+    inline cd operator-(const cd &p1, const cd &p2) {
+        return cd(p1.x - p2.x, p1.y - p2.y);
+    }
+
+    inline cd operator*(const cd &p1, const cd &p2) {
+        return cd(p1.x * p2.x - p1.y * p2.y, p1.x * p2.y + p2.x * p1.y);
+    }
+
+    inline void operator/=(cd &p1, size_t k) {
         p1.x /= (double) k, p1.y /= (double) k;
     }
 
-    inline base operator-(const base &p1, const base &p2) {
-        return base(p1.x - p2.x, p1.y - p2.y);
-    }
-
-    inline base operator+(const base &p1, const base &p2) {
-        return base(p1.x + p2.x, p1.y + p2.y);
-    }
-
-    const int lg = 20;
-
-    vector<base> roots[lg];
-    vector<int> rev[lg];
-
-    void precalc() {
-        rev[0].resize(1);
-        for (int i = 0; i < lg - 1; i++) {
-            int len = 1 << i;
-            rev[i + 1].resize(2 * len);
-            for (int j = 0; j < len; j++) {
-                rev[i + 1][j] = rev[i][j] << 1;
-                rev[i + 1][j | len] = rev[i + 1][j] + 1;
-            }
-        }
-        for (int i = 0; i < lg; i++) {
-            int len = 1 << i;
-            base w{cos(M_PI / len), sin(M_PI / len)};
-            roots[i].resize(len);
-            roots[i][0] = base(1.0);
-            for (int j = 1; j < len; j++) {
-                roots[i][j] = roots[i][j - 1] * w;
-            }
-        }
-    }
-
-    void fft(vector<base> &a) {
+    void fft(vector<cd> &a, bool invert) {
         size_t n = a.size();
-        int lg2 = (int) log2(n);
-        for (size_t i = 0; i < n; i++) {
-            if (i < rev[lg2][i]) swap(a[i], a[rev[lg2][i]]);
+        for (size_t i = 1, j = 0; i < n; i++) {
+            size_t bit = n >> 1;
+            for (; j & bit; bit >>= 1) {
+                j ^= bit;
+            }
+            j ^= bit;
+            if (i < j) {
+                swap(a[i], a[j]);
+            }
         }
-        for (int lvl = 0; lvl < lg2; lvl++) {
-            int len = 1 << lvl;
-            for (size_t st = 0; st < n; st += 2 * len) {
-                for (size_t i = st; i < st + len; i++) {
-                    base b = roots[lvl][i - st] * a[len + i], t = a[i];
-                    a[i] = t + b, a[len + i] = t - b;
+        for (int len = 2; len <= n; len <<= 1) {
+            double ang = 2 * M_PI / len * (invert ? -1 : 1);
+            cd wlen(cos(ang), sin(ang));
+            for (size_t i = 0; i < n; i += len) {
+                cd w(1);
+                for (size_t j = 0; j < len / 2; j++) {
+                    cd u = a[i + j], v = a[i + j + len / 2] * w;
+                    a[i + j] = u + v;
+                    a[i + j + len / 2] = u - v;
+                    w = w * wlen;
                 }
             }
         }
-    }
-
-    void fft_rev(vector<base> &a) {
-        size_t n = a.size();
-        fft(a);
-        for (size_t i = 0; i < n; i++) a[i] /= n;
-        reverse(a.begin() + 1, a.end());
+        if (invert) {
+            for (cd &x: a) {
+                x /= n;
+            }
+        }
     }
 
     vector<double> multiply(const vector<double> &a, const vector<double> &b) {
         size_t n = 1;
         while (n < a.size() + b.size() - 1) n <<= 1;
-        vector<base> c(n);
+        vector<cd> c(n);
         for (size_t i = 0; i < max(a.size(), b.size()); i++) {
-            c[i] = base(i < a.size() ? a[i] : 0, i < b.size() ? b[i] : 0);
+            c[i] = cd(i < a.size() ? a[i] : 0, i < b.size() ? b[i] : 0);
         }
-        fft(c);
+        fft(c, false);
         for (size_t i = 0; i <= n / 2; i++) {
             size_t j = i > 0 ? n - i : 0;
-            double a1 = (c[i].x + c[j].x) / 2.0;
-            double b1 = (c[i].y - c[j].y) / 2.0;
-            double c1 = (c[i].y + c[j].y) / 2.0;
-            double d1 = (-c[i].x + c[j].x) / 2.0;
-            c[i] = base(a1 * c1 - b1 * d1, a1 * d1 + b1 * c1);
-            c[j] = base(a1 * c1 - b1 * d1, -a1 * d1 - b1 * c1);
+            double a1 = (c[i].x + c[j].x) / 2;
+            double b1 = (c[i].y - c[j].y) / 2;
+            double c1 = (c[i].y + c[j].y) / 2;
+            double d1 = (-c[i].x + c[j].x) / 2;
+            c[i] = cd(a1 * c1 - b1 * d1, a1 * d1 + b1 * c1);
+            c[j] = cd(a1 * c1 - b1 * d1, -a1 * d1 - b1 * c1);
         }
-        fft_rev(c);
+        fft(c, true);
         vector<double> res(n);
         for (size_t i = 0; i < n; i++) res[i] = c[i].x;
         return res;

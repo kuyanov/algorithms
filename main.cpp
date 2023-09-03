@@ -5,6 +5,7 @@
 #include "manacher.h"
 #include "miller_rabin.h"
 #include "mincost_maxflow.h"
+#include "ntt.h"
 #include "pollard.h"
 #include "prefix_function.h"
 #include "suffix_automaton.h"
